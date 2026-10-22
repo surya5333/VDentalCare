@@ -1,0 +1,469 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WorkflowType {
+  GENERAL
+  ORTHO
+}
+
+model OPRecord {
+  id                   String               @id @default(uuid())
+  opNumber             String               @unique
+  patientName          String
+  age                  Int
+  sex                  String
+  phone                String
+  date                 DateTime
+  reference            String?
+  paidStatus           String
+  registrationFee      Int                  @default(0)
+  registrationPaymentMode String?
+  // Clinical fields (Clinic Head)
+  diabetes             Boolean              @default(false)
+  hypertension         Boolean              @default(false)
+  otherMedicalHistory  String?
+  chiefComplaint       String?
+  egEhsGen             String?
+  advisoryDiscount     Int                  @default(0)
+  orthoTotalAmount     Int                  @default(0)
+  orthoDiscount        Int                  @default(0)
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  workflowType         WorkflowType         @default(GENERAL)
+  finalizedTreatments  FinalizedTreatment[]
+  orthoTreatments      OrthoTreatment[]
+  treatmentPlanImages  TreatmentPlanImage[]
+  xRays                XRay[]
+  doctorVisits         DoctorVisit[]
+  appointments         Appointment[]
+  labRecords           LabRecord[]
+  patientLedgers       PatientLedger[]
+
+  @@index([opNumber])
+  @@index([phone])
+  @@index([patientName])
+  @@index([date])
+  @@index([workflowType])
+  @@index([createdAt])
+  @@index([workflowType, createdAt])
+}
+
+model Treatment {
+  id                    String               @id @default(uuid())
+  name                  String
+  patientPrice          Int?
+  requiresTeethNotation Boolean
+  isActive              Boolean              @default(true)
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  finalizedTreatments   FinalizedTreatment[]
+
+  @@index([isActive])
+}
+
+model CrownType {
+  id                  String               @id @default(uuid())
+  name                String
+  patientPrice        Int
+  labPrice            Int
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  finalizedTreatments FinalizedTreatment[]
+
+  @@index([isActive])
+}
+
+model Reference {
+  id        String   @id @default(uuid())
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+model Doctor {
+  id           String        @id @default(uuid())
+  name         String
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  doctorVisits DoctorVisit[]
+  appointments Appointment[]
+
+  @@index([isActive])
+}
+
+model FinalizedTreatment {
+  id                    String   @id @default(uuid())
+  opRecordId            String
+  treatmentId           String
+  treatmentNameSnapshot String
+  patientPriceSnapshot  Int?
+  requiresTeethNotation Boolean
+  teethNotation         Json?
+  crownTypeId           String?
+  numberOfCrowns        Int?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  opRecord       OPRecord        @relation(fields: [opRecordId], references: [id], onDelete: Cascade)
+  treatment      Treatment       @relation(fields: [treatmentId], references: [id], onDelete: Restrict)
+  crownType      CrownType?      @relation(fields: [crownTypeId], references: [id], onDelete: Restrict)
+  labRecords     LabRecord[]
+  patientLedgers PatientLedger[]
+
+  @@index([opRecordId])
+  @@index([treatmentId])
+  @@index([crownTypeId])
+}
+
+model OrthoTreatment {
+  id            String   @id @default(uuid())
+  opRecordId    String
+  treatmentName String
+  treatmentCode String
+  amount        Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  opRecord       OPRecord        @relation(fields: [opRecordId], references: [id], onDelete: Cascade)
+  patientLedgers PatientLedger[]
+
+  @@index([opRecordId])
+}
+
+model TreatmentPlanImage {
+  id               String   @id @default(uuid())
+  opRecordId       String
+  fileUrl          String
+  originalFilename String?
+  fileData         Bytes?
+  mimeType         String?
+  uploadedAt       DateTime @default(now())
+  uploadedBy       String?
+
+  opRecord OPRecord @relation(fields: [opRecordId], references: [id], onDelete: Cascade)
+
+  @@index([opRecordId])
+}
+
+model XRay {
+  id               String   @id @default(uuid())
+  opRecordId       String
+  fileUrl          String
+  originalFilename String?
+  fileData         Bytes?
+  mimeType         String?
+  uploadedAt       DateTime @default(now())
+  uploadedBy       String?
+
+  opRecord OPRecord @relation(fields: [opRecordId], references: [id], onDelete: Cascade)
+
+  @@index([opRecordId])
+}
+
+model DoctorVisit {
+  id                 String   @id @default(uuid())
+  opRecordId         String
+  doctorId           String
+  visitDate          DateTime
+  treatmentDone      String?
+  visitTeethNotation Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  opRecord OPRecord           @relation(fields: [opRecordId], references: [id], onDelete: Cascade)
+  doctor   Doctor             @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  images   DoctorVisitImage[]
+
+  @@index([opRecordId])
+  @@index([doctorId])
+  @@index([visitDate])
+}
+
+model DoctorVisitImage {
+  id               String   @id @default(uuid())
+  doctorVisitId    String
+  fileUrl          String
+  originalFilename String?
+  fileData         Bytes?
+  mimeType         String?
+  uploadedAt       DateTime @default(now())
+  uploadedBy       String?
+
+  doctorVisit DoctorVisit @relation(fields: [doctorVisitId], references: [id], onDelete: Cascade)
+
+  @@index([doctorVisitId])
+}
+
+model Appointment {
+  id              String       @id @default(uuid())
+  opRecordId      String
+  doctorId        String
+  appointmentDate DateTime
+  appointmentTime String
+  workflowType    WorkflowType @default(GENERAL)
+  status          String       @default("Scheduled")
+  notes           String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  opRecord OPRecord @relation(fields: [opRecordId], references: [id], onDelete: Cascade)
+  doctor   Doctor   @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+
+  @@index([opRecordId])
+  @@index([doctorId])
+  @@index([appointmentDate])
+  @@index([status])
+  @@index([workflowType])
+}
+
+// ============================================================
+// Phase 3: Lab Workflow + Monthly Lab Settlements
+// ============================================================
+
+model Lab {
+  id        String   @id @default(uuid())
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  labRecords         LabRecord[]
+  labSettlements     LabSettlement[]
+  labMonthlyPayments LabMonthlyPayment[]
+
+  @@index([isActive])
+}
+
+model LabRecord {
+  id                       String    @id @default(uuid())
+  opRecordId               String
+  finalizedTreatmentId     String
+  labId                    String
+  labPriceSnapshot         Int
+  labCostSnapshot          Int
+  parcelSentDate           DateTime?
+  targetReceiveDate        DateTime?
+  m1ReceivedDate           DateTime?
+  bisqueReceivedDate       DateTime?
+  glazeReceivedFirstDate   DateTime?
+  glazeReceivedSecondDate  DateTime?
+  warrantyCardReceivedDate DateTime?
+  warrantyCardGivenDate    DateTime?
+  remarks                  String?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  opRecord           OPRecord            @relation(fields: [opRecordId], references: [id], onDelete: Cascade)
+  finalizedTreatment FinalizedTreatment  @relation(fields: [finalizedTreatmentId], references: [id], onDelete: Restrict)
+  lab                Lab                 @relation(fields: [labId], references: [id], onDelete: Restrict)
+  labSettlementItems LabSettlementItem[]
+  labExpensePayment  LabExpensePayment?
+
+  @@index([opRecordId])
+  @@index([finalizedTreatmentId])
+  @@index([labId])
+  @@index([createdAt])
+  @@index([labId, createdAt])
+}
+
+model LabSettlement {
+  id             String   @id @default(uuid())
+  labId          String
+  settlementDate DateTime
+  periodMonth    Int
+  periodYear     Int
+  totalAmount    Int
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  lab   Lab                 @relation(fields: [labId], references: [id], onDelete: Restrict)
+  items LabSettlementItem[]
+
+  @@index([labId])
+  @@index([settlementDate])
+  @@index([periodMonth, periodYear])
+}
+
+model LabSettlementItem {
+  id           String   @id @default(uuid())
+  settlementId String
+  labRecordId  String
+  amount       Int
+  createdAt    DateTime @default(now())
+
+  settlement LabSettlement @relation(fields: [settlementId], references: [id], onDelete: Restrict)
+  labRecord  LabRecord     @relation(fields: [labRecordId], references: [id], onDelete: Restrict)
+
+  @@index([settlementId])
+  @@index([labRecordId])
+}
+
+// ============================================================
+// Phase 4: Patient Individual Ledger + Payments + Discounts
+// ============================================================
+
+model PatientLedger {
+  id                   String       @id @default(uuid())
+  opRecordId           String
+  date                 DateTime
+  treatmentCost        Int
+  paidAmount           Int
+  paymentMode          String
+  discount             Int
+  balance              Int
+  workflowType         WorkflowType @default(GENERAL)
+  finalizedTreatmentId String? // Optional link to general treatment
+  orthoTreatmentId     String? // Optional link to ortho treatment
+  idempotencyKey       String?      @unique
+  isRegistrationFee    Boolean      @default(false)
+  description          String?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  opRecord           OPRecord            @relation(fields: [opRecordId], references: [id], onDelete: Cascade)
+  finalizedTreatment FinalizedTreatment? @relation(fields: [finalizedTreatmentId], references: [id], onDelete: Restrict)
+  orthoTreatment     OrthoTreatment?     @relation(fields: [orthoTreatmentId], references: [id], onDelete: Restrict)
+
+  @@index([opRecordId])
+  @@index([date])
+  @@index([createdAt])
+  @@index([finalizedTreatmentId])
+  @@index([orthoTreatmentId])
+  @@index([workflowType])
+}
+
+// ============================================================
+// Phase 8: Hardening & Auth
+// ============================================================
+
+model Counter {
+  id    String @id
+  value Int
+}
+
+enum Role {
+  FRONT_OFFICE
+  CLINIC_HEAD
+  WORKING_DOCTOR
+  MANAGER
+  IMAGE_UPLOADER
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  role         Role
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ============================================================
+// Phase 9: Expenses Module
+// ============================================================
+
+model MonthlyFinancialSummary {
+  id                 String   @id @default(uuid())
+  month              DateTime @unique // First day of the month (e.g. 2026-01-01T00:00:00Z)
+  generalCollections Int      @default(0)
+  orthoCollections   Int      @default(0)
+  monthlyValue       Int      @default(0) // generalCollections + orthoCollections
+  lastCalculatedAt   DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([month])
+}
+
+// Percentages stored as basis points (1/100th of %).
+// e.g. 10% = 1000, 12.5% = 1250, 17.5% = 1750, 20% = 2000.
+// This avoids floating-point arithmetic for money.
+model ExpenseBudgetSetting {
+  id         String   @id @default(uuid())
+  key        String   @unique // e.g. "marketing", "lab", "salaries", "office_expenses"
+  label      String           // Display name e.g. "Marketing"
+  percentage Int              // Basis points (1000 = 10%)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+enum ExpenseCategory {
+  MARKETING
+  SALARIES
+  OFFICE_EXPENSES
+}
+
+model ExpenseEntry {
+  id                String          @id @default(uuid())
+  category          ExpenseCategory
+  expenseDate       DateTime
+  nameOrDescription String
+  cashAmount        Int             @default(0)
+  bankAmount        Int             @default(0)
+  notes             String?
+  createdBy         String?
+  updatedBy         String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([category])
+  @@index([expenseDate])
+  @@index([category, expenseDate])
+}
+
+// Editable cash/bank payments against existing LabRecords.
+// One row per LabRecord. Does NOT duplicate the underlying cost.
+model LabExpensePayment {
+  id          String   @id @default(uuid())
+  labRecordId String   @unique // One payment record per lab record
+  cashPaid    Int      @default(0)
+  bankPaid    Int      @default(0)
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  labRecord LabRecord @relation(fields: [labRecordId], references: [id], onDelete: Restrict)
+
+  @@index([labRecordId])
+}
+
+// Consolidated monthly cumulative cash/bank payments per Lab.
+// Exactly one entry per lab per month. Does NOT fragment across patient records.
+model LabMonthlyPayment {
+  id        String   @id @default(uuid())
+  labId     String
+  month     DateTime // First day of the month (e.g. 2026-10-01T00:00:00.000Z)
+  cashPaid  Int      @default(0)
+  bankPaid  Int      @default(0)
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lab Lab @relation(fields: [labId], references: [id], onDelete: Restrict)
+
+  @@unique([labId, month])
+  @@index([labId])
+  @@index([month])
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  label     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
